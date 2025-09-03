@@ -11,22 +11,31 @@ app.config['JSON_AS_ASCII'] = False
 df_dados = pd.DataFrame()
 
 try:
-    print("PASSO 1: Lendo o arquivo 'dados_limpos_pcj.csv' com o motor Python...")
+    print("PASSO 1: Lendo o arquivo 'dados_limpos_pcj.csv'...")
     
-    # A CORREÇÃO FINAL: Adicionado engine='python' para lidar com erros de formatação no CSV, como vírgulas em campos de texto.
-    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=',', encoding='utf-8-sig', header=0, engine='python')
+    # A CORREÇÃO PRINCIPAL:
+    # header=0 -> Usa a primeira linha como cabeçalho.
+    # skiprows=[1, 2] -> Pula a segunda (unidades) e a terceira (códigos) linhas.
+    # engine='python' -> Garante a leitura correta mesmo com vírgulas extras no texto.
+    df_temp = pd.read_csv(
+        'dados_limpos_pcj.csv', 
+        sep=',', 
+        encoding='utf-8-sig', 
+        header=0,
+        skiprows=[1, 2],
+        engine='python'
+    )
     
-    print("PASSO 2: Removendo as 2 linhas de metadados abaixo do cabeçalho...")
-    # Esta linha é necessária para pular as linhas de "unidades" e "códigos".
-    df_dados_processando = df_temp.iloc[2:].reset_index(drop=True)
+    print("PASSO 2: Limpando espaços em branco dos nomes das colunas...")
+    # Isso remove espaços extras no início ou fim dos nomes do cabeçalho
+    df_temp.columns = df_temp.columns.str.strip()
 
-    print("PASSO 3: Renomeando as colunas para nomes mais simples...")
-    # Renomeando as colunas conforme o cabeçalho do seu arquivo
-    df_dados_processando.rename(columns={
+    print("PASSO 3: Renomeando colunas para nomes padronizados...")
+    df_temp.rename(columns={
         'Municipio': 'Municipio',
-        'Populacao Total Residente ': 'pop_total',
+        'Populacao Total Residente': 'pop_total',
         'Populacao Urbana Residente': 'pop_urbana',
-        'Populacao Rural Residente ': 'pop_rural',
+        'Populacao Rural Residente': 'pop_rural',
         'Volume de agua produzido': 'vol_produzido',
         'Volume de agua consumido': 'vol_consumido',
         'Volume de agua micromedido': 'vol_micromedido',
@@ -39,9 +48,9 @@ try:
         'Meta 2025': 'Meta_2025'
     }, inplace=True)
 
-    if 'Municipio' in df_dados_processando.columns:
-        print("PASSO 4: Convertendo colunas de texto para números...")
-        df_dados_processando['Municipio'] = df_dados_processando['Municipio'].str.strip()
+    if 'Municipio' in df_temp.columns:
+        print("PASSO 4: Processando e convertendo os dados...")
+        df_temp['Municipio'] = df_temp['Municipio'].str.strip()
         
         cols_to_convert = [
             'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido',
@@ -50,25 +59,26 @@ try:
         ]
         
         for col in cols_to_convert:
-            if col in df_dados_processando.columns:
-                # O errors='coerce' transforma qualquer valor que não seja um número em 'NaN' (Not a Number)
-                df_dados_processando[col] = pd.to_numeric(df_dados_processando[col], errors='coerce')
+            if col in df_temp.columns:
+                df_temp[col] = pd.to_numeric(df_temp[col], errors='coerce')
         
-        print("PASSO 5: Calculando colunas de percentual...")
-        df_dados_processando['pct_pop_urbana'] = (df_dados_processando['pop_urbana'] / df_dados_processando['pop_total'] * 100).fillna(0)
-        df_dados_processando['pct_pop_rural'] = (df_dados_processando['pop_rural'] / df_dados_processando['pop_total'] * 100).fillna(0)
+        df_temp['pct_pop_urbana'] = (df_temp['pop_urbana'] / df_temp['pop_total'] * 100).fillna(0)
+        df_temp['pct_pop_rural'] = (df_temp['pop_rural'] / df_temp['pop_total'] * 100).fillna(0)
         
-        df_dados = df_dados_processando
+        # Atribui o dataframe processado à variável global
+        df_dados = df_temp
         
-        print("SUCESSO: Dados carregados e processados!")
+        print("SUCESSO: Dados carregados e prontos para uso!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
+        # Imprime as colunas encontradas para ajudar a depurar, caso o erro persista
+        print("COLUNAS ENCONTRADAS APÓS LIMPEZA:", df_temp.columns.tolist())
+        raise Exception("A coluna 'Municipio' não foi encontrada após a renomeação.")
         
 except Exception as e:
-    print(f"\nERRO INESPERADO DURANTE O CARREGAMENTO: {e}")
-    print("O DataFrame 'df_dados' permanecerá vazio. As chamadas de API retornarão erro.")
+    print(f"\nERRO CRÍTICO DURANTE O CARREGAMENTO DOS DADOS: {e}")
+    print("A aplicação iniciará, mas o DataFrame de dados estará vazio.")
 
-# --- O restante do código da API permanece o mesmo ---
+# --- As rotas da API (backend) e da página (frontend) continuam iguais ---
 
 @app.route('/')
 def home():
