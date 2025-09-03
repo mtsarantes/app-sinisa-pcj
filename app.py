@@ -16,36 +16,33 @@ def to_numeric_br(series):
     return pd.to_numeric(series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), errors='coerce')
 
 try:
-    print("Lendo o arquivo 'dados_limpos_pcj.csv' com o decodificador UTF-8-SIG...")
+    print("Lendo o arquivo 'dados_limpos_pcj.csv'...")
     
-    # Lendo o arquivo e definindo o cabeçalho na primeira linha (índice 0)
+    # Lendo o arquivo com o cabeçalho na primeira linha
     df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=0)
     
-    # Limpando os nomes das colunas
-    df_temp.columns = df_temp.columns.str.strip()
-    
-    # Pulando as 2 linhas extras (unidades, códigos)
-    df_dados = df_temp.iloc[2:].reset_index(drop=True)
-
-    # Renomeando as colunas com os nomes corretos em português (após a limpeza)
-    df_dados.rename(columns={
+    # Renomeando as colunas com os nomes exatos do seu arquivo CSV
+    df_dados = df_temp.rename(columns={
         'Município': 'Municipio',
-        'População Total Residente': 'pop_total',
-        'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente': 'pop_rural',
-        'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido',
-        'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais',
+        'PopulaÃ§Ã£o Total Residente ': 'pop_total',
+        'PopulaÃ§Ã£o Urbana Residente': 'pop_urbana',
+        'PopulaÃ§Ã£o Rural Residente ': 'pop_rural',
+        'Volume de Ã¡gua produzido': 'vol_produzido',
+        'Volume de Ã¡gua consumido': 'vol_consumido',
+        'Volume de Ã¡gua micromedido': 'vol_micromedido',
+        'Perdas totais de Ã¡gua na distribuiÃ§Ã£o': 'perdas_percentual',
+        'Perdas totais lineares de Ã¡gua na rede de distribuiÃ§Ã£o': 'perdas_lineares',
+        'Perdas totais de Ã¡gua por ligaÃ§Ã£o': 'perdas_por_ligacao',
+        'IncidÃªncia de ligaÃ§Ãµes de Ã¡gua setorizadas': 'incidencia_setorizadas',
+        'Volume de perdas aparentes de Ã¡gua': 'vol_perdas_aparentes',
+        'Volume de perdas reais de Ã¡gua': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
-    }, inplace=True)
-    
-    # Limpando a coluna 'Município'
+    }, inplace=False)
+
+    # Pulando as 2 linhas extras (unidades, códigos)
+    df_dados = df_dados.iloc[2:].reset_index(drop=True)
+
+    # Limpando e convertendo os dados
     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip().str.lower()
         
@@ -66,6 +63,7 @@ try:
         
 except Exception as e:
     print(f"\nOcorreu um erro inesperado: {e}")
+    df_dados = pd.DataFrame()
 
 @app.route('/')
 def home():
@@ -92,7 +90,6 @@ def ranking_perdas():
     ranking_df = ranking_df[['Municipio', 'perdas_percentual']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
     
-    # Restaurando a capitalização para exibição
     ranking_df['Municipio'] = ranking_df['Municipio'].str.title()
     
     return jsonify(ranking_df.to_dict(orient='records'))
@@ -105,7 +102,6 @@ def ranking_perdas_por_ligacao():
     ranking_df = ranking_df[['Municipio', 'perdas_por_ligacao']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
 
-    # Restaurando a capitalização para exibição
     ranking_df['Municipio'] = ranking_df['Municipio'].str.title()
     
     return jsonify(ranking_df.to_dict(orient='records'))
@@ -119,12 +115,11 @@ def dados_municipio(nome_municipio):
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
         dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
-        dados_formatados['Municipio'] = dados_formatados['Municipio'].title() # Capitaliza para exibição
+        dados_formatados['Municipio'] = dados_formatados['Municipio'].title() 
         return jsonify(dados_formatados)
 
 @app.route('/api/municipios')
 def get_municipios():
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    # Retornando a lista de municípios com a primeira letra maiúscula para a lista suspensa
     lista_municipios = sorted(df_dados['Municipio'].str.title().dropna().unique().tolist())
     return jsonify(lista_municipios)
