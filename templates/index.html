@@ -10,7 +10,7 @@
         .status-met { color: green; font-weight: bold; }
         .status-not-met { color: red; font-weight: bold; }
         .comparison { font-size: 0.85rem; margin-top: 4px; font-weight: bold; }
-        .comparison.worse, .ranking-worse { color: red; }
+        .comparison.worse { color: red; }
         .comparison.better { color: green; }
         table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #e0e0e0}thead{background-color:#1c5a9b;color:#fff}tbody tr:nth-child(even){background-color:#f8f9fa}td:first-child,th:first-child{text-align:center;font-weight:700}
         footer{text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #ccc;font-size:.9rem;color:#666}
@@ -70,10 +70,11 @@
             if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Selecione um município.</p>'; return;}
             resultadoDiv.innerHTML="<p>Buscando...</p>";
             try {
-                const response = await fetch(`/api/municipio/${municipioNome}`);
+                const response = await fetch(`http://127.0.0.1:5000/api/municipio/${municipioNome}`);
                 const municipio = await response.json();
                 if (municipio.erro) { resultadoDiv.innerHTML = `<p style="color: red;">${municipio.erro}</p>`; return; }
                 
+                function getComparisonToBasin(valorMunicipio, valorBacia) { if (valorBacia === null || valorMunicipio === 'N/D') return ''; const valMun = Number(String(valorMunicipio).replace(",",".")); if (isNaN(valMun)) return ''; const diff = ((valMun / valorBacia) - 1) * 100; const isWorse = diff > 0; const text = isWorse ? `${formatarNumero(diff)}% pior que a bacia` : `${formatarNumero(Math.abs(diff))}% melhor que a bacia`; const className = isWorse ? 'worse' : 'better'; return `<div class="comparison ${className}">${text}</div>`; }
                 function getComparisonTo2025Goal(valorAtual, meta2025) { if (meta2025 === 'N/D' || valorAtual === 'N/D' || !meta2025) return '<div class="meta-status">Meta 2025: N/D</div>'; const valAtualNum = Number(String(valorAtual).replace(",",".")); const metaNum = Number(meta2025); if(isNaN(valAtualNum) || isNaN(metaNum)) return '<div class="meta-status">Meta 2025: N/D</div>'; const status = valAtualNum <= metaNum ? '<span class="status-met">Atingida</span>' : '<span class="status-not-met">Não Atingida</span>'; return `<div class="meta-status">Meta 2025: ${formatarNumero(metaNum)}% (${status})</div>`; }
                 
                 resultadoDiv.innerHTML = `
@@ -87,18 +88,32 @@
                         <div class="info-item"><span class="label">Volume Micromedido</span><span class="value">${formatarNumero(municipio.vol_micromedido)} mil m³/ano</span></div>
                     </div>
                     
-                    <h3 style="margin-top: 24px;">Indicadores e Metas de Perdas</h3>
+                    <h3 style="margin-top: 24px;">Indicadores de Perdas</h3>
                     <div class="info-grid">
                         <div class="info-item">
                             <span class="label">Perdas na Distribuição (%)</span>
                             <span class="value">${formatarNumero(municipio.perdas_percentual)} %</span>
+                            ${getComparisonToBasin(municipio.perdas_percentual, baciaValores.perdas_percentual)}
                             ${getComparisonTo2025Goal(municipio.perdas_percentual, municipio.Meta_2025)}
                         </div>
-                        <div class="info-item"><span class="label">Perdas por Ligação (L/dia)</span><span class="value">${formatarNumero(municipio.perdas_por_ligacao)} L/lig/dia</span></div>
+                        <div class="info-item"><span class="label">Perdas por Ligação (L/dia)</span><span class="value">${formatarNumero(municipio.perdas_por_ligacao)} L/lig/dia</span> ${getComparisonToBasin(municipio.perdas_por_ligacao, baciaValores.perdas_por_ligacao)}</div>
                         <div class="info-item"><span class="label">Perdas Lineares</span><span class="value">${formatarNumero(municipio.perdas_lineares)} m³/km/dia</span></div>
                         <div class="info-item"><span class="label">Incidência de Setorização</span><span class="value">${formatarNumero(municipio.incidencia_setorizadas)} %</span></div>
-                        <div class="info-item"><span class="label">Volume de Perdas Aparentes</span><span class="value">${formatarNumero(municipio.vol_perdas_aparentes)} mil m³/ano</span></div>
-                        <div class="info-item"><span class="label">Volume de Perdas Reais</span><span class="value">${formatarNumero(municipio.vol_perdas_reais)} mil m³/ano</span></div>
                     </div>`;
 
             } catch(e) { console.error("Erro na busca:",e); resultadoDiv.innerHTML='<p style="color: red;">Falha na conexão.</p>'; }
+        }
+        searchButton.addEventListener("click", buscarMunicipio);
+        
+        async function carregarDadosIniciais(){
+            async function carregarMunicipios(){try{const e=await fetch("http://127.0.0.1:5000/api/municipios"),t=await e.json();t.forEach(e=>{const t=document.createElement("option");t.value=e,t.textContent=e,municipioSelect.appendChild(t)})}catch(e){console.error("Erro ao carregar municípios",e)}}
+            async function carregarRankingPercentual(){const e=document.getElementById("ranking-percentual-body");try{const t=await fetch("http://127.0.0.1:5000/api/ranking/perdas"),a=await t.json();e.innerHTML="",a.forEach(t=>{const a=document.createElement("tr");const n=Number(String(t.perdas_percentual).replace(",","."));let r="<td>";n>baciaValores.perdas_percentual&&(r='<td class="comparison worse">'),a.innerHTML=`<td>${t.Posicao}</td><td>${t.Municipio}</td>${r}${formatarNumero(t.perdas_percentual)}%</td>`,e.appendChild(a)})}catch(t){console.error("Erro ranking %:",t),e.innerHTML='<tr><td colspan="3" style="text-align: center; color: red;">Erro!</td></tr>'}}
+            async function carregarRankingLigacao(){const e=document.getElementById("ranking-ligacao-body");try{const t=await fetch("http://127.0.0.1:5000/api/ranking/perdas_por_ligacao"),a=await t.json();e.innerHTML="",a.forEach(t=>{const a=document.createElement("tr");const n=Number(String(t.perdas_por_ligacao).replace(",","."));let r="<td>";n>baciaValores.perdas_por_ligacao&&(r='<td class="comparison worse">'),a.innerHTML=`<td>${t.Posicao}</td><td>${t.Municipio}</td>${r}${formatarNumero(t.perdas_por_ligacao)}</td>`,e.appendChild(a)})}catch(t){console.error("Erro ranking ligação:",t),e.innerHTML='<tr><td colspan="3" style="text-align: center; color: red;">Erro!</td></tr>'}}
+            carregarMunicipios();
+            carregarRankingPercentual();
+            carregarRankingLigacao();
+        }
+        window.onload = carregarDadosIniciais;
+    </script>
+</body>
+</html>
