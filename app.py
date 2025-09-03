@@ -1,5 +1,5 @@
 import pandas as pd
-from flask import Flask, jsonify, render_template # Adicionar render_template
+from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 import numpy as np
 
@@ -11,13 +11,15 @@ app.config['JSON_AS_ASCII'] = False
 df_dados = pd.DataFrame()
 
 try:
-    print("Lendo o arquivo 'dados_limpos_pcj.csv'...")
+    print("PASSO 1: Lendo o arquivo 'dados_limpos_pcj.csv'...")
     df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=',', encoding='utf-8-sig', header=0)
     
-    print("Colunas encontradas no arquivo:", df_temp.columns.tolist())
+    print("PASSO 2: Removendo as 2 linhas iniciais que não são dados de municípios...")
+    # Esta linha é crucial e está sendo reintroduzida para pular as linhas de "unidades" e "códigos".
+    df_dados_processando = df_temp.iloc[2:].reset_index(drop=True)
 
-    # Renomeando colunas para garantir a consistência
-    df_temp.rename(columns={
+    print("PASSO 3: Renomeando as colunas para nomes mais simples...")
+    df_dados_processando.rename(columns={
         'Municipio': 'Municipio',
         'Populacao Total Residente': 'pop_total',
         'Populacao Urbana Residente': 'pop_urbana',
@@ -33,11 +35,10 @@ try:
         'Volume de perdas reais de agua': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
     }, inplace=True)
-    
-    df_dados = df_temp.iloc[2:].reset_index(drop=True)
 
-    if 'Municipio' in df_dados.columns:
-        df_dados['Municipio'] = df_dados['Municipio'].str.strip()
+    if 'Municipio' in df_dados_processando.columns:
+        print("PASSO 4: Convertendo colunas de texto para números...")
+        df_dados_processando['Municipio'] = df_dados_processando['Municipio'].str.strip()
         
         cols_to_convert = [
             'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido',
@@ -46,26 +47,30 @@ try:
         ]
         
         for col in cols_to_convert:
-            if col in df_dados.columns:
-                df_dados[col] = pd.to_numeric(df_dados[col], errors='coerce')
+            if col in df_dados_processando.columns:
+                df_dados_processando[col] = pd.to_numeric(df_dados_processando[col], errors='coerce')
         
-        df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
-        df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
+        print("PASSO 5: Calculando colunas de percentual...")
+        df_dados_processando['pct_pop_urbana'] = (df_dados_processando['pop_urbana'] / df_dados_processando['pop_total'] * 100).fillna(0)
+        df_dados_processando['pct_pop_rural'] = (df_dados_processando['pop_rural'] / df_dados_processando['pop_total'] * 100).fillna(0)
         
-        print("Dados carregados e processados com sucesso!")
+        # Atribuição final para a variável global
+        df_dados = df_dados_processando
+        
+        print("SUCESSO: Dados carregados e processados!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV e o bloco 'rename'.")
+        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
         
 except Exception as e:
-    print(f"\nOcorreu um erro inesperado: {e}")
+    print(f"\nERRO INESPERADO DURANTE O CARREGAMENTO: {e}")
+    print("O DataFrame 'df_dados' permanecerá vazio. As chamadas de API retornarão erro.")
 
-# --- Rota Principal para servir a página HTML ---
+
+# --- O restante do código permanece o mesmo ---
+
 @app.route('/')
 def home():
-    # Flask vai procurar por 'index.html' na pasta 'templates'
     return render_template('index.html')
-
-# --- As rotas da API continuam as mesmas ---
 
 @app.route('/api/ranking/perdas')
 def ranking_perdas():
@@ -97,7 +102,7 @@ def dados_municipio(nome_municipio):
 @app.route('/api/municipios')
 def get_municipios():
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    lista_municipios = sorted(df_dados['Municipio'].dropna().unique().tolist())
+    # Filtra qualquer possível valor não-string na coluna Municipio antes de processar
+    municipios_validos = df_dados[df_dados['Municipio'].apply(lambda x: isinstance(x, str))]['Municipio']
+    lista_municipios = sorted(municipios_validos.dropna().unique().tolist())
     return jsonify(lista_municipios)
-
-# O if __name__ == '__main__': foi removido, pois o Gunicorn não o utiliza.
