@@ -12,27 +12,21 @@ df_dados = pd.DataFrame()
 
 try:
     print("PASSO 1: Lendo o arquivo 'dados_limpos_pcj.csv'...")
-    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=',', encoding='utf-8-sig', header=0)
+    # CORREÇÃO: Adicionado engine='python' para lidar com erros de formatação no CSV.
+    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=',', encoding='utf-8-sig', header=0, engine='python')
     
     print("PASSO 2: Removendo as 2 linhas iniciais que não são dados de municípios...")
-    # Esta linha é crucial e está sendo reintroduzida para pular as linhas de "unidades" e "códigos".
     df_dados_processando = df_temp.iloc[2:].reset_index(drop=True)
 
     print("PASSO 3: Renomeando as colunas para nomes mais simples...")
     df_dados_processando.rename(columns={
-        'Municipio': 'Municipio',
-        'Populacao Total Residente': 'pop_total',
-        'Populacao Urbana Residente': 'pop_urbana',
-        'Populacao Rural Residente': 'pop_rural',
-        'Volume de agua produzido': 'vol_produzido',
-        'Volume de agua consumido': 'vol_consumido',
-        'Volume de agua micromedido': 'vol_micromedido',
-        'Perdas totais de agua na distribuicao': 'perdas_percentual',
+        'Municipio': 'Municipio', 'Populacao Total Residente': 'pop_total',
+        'Populacao Urbana Residente': 'pop_urbana', 'Populacao Rural Residente': 'pop_rural',
+        'Volume de agua produzido': 'vol_produzido', 'Volume de agua consumido': 'vol_consumido',
+        'Volume de agua micromedido': 'vol_micromedido', 'Perdas totais de agua na distribuicao': 'perdas_percentual',
         'Perdas totais lineares de agua na rede de distribuicao': 'perdas_lineares',
-        'Perdas totais de agua por ligacao': 'perdas_por_ligacao',
-        'Incidencia de ligacoes de agua setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de agua': 'vol_perdas_aparentes',
-        'Volume de perdas reais de agua': 'vol_perdas_reais',
+        'Perdas totais de agua por ligacao': 'perdas_por_ligacao', 'Incidencia de ligacoes de agua setorizadas': 'incidencia_setorizadas',
+        'Volume de perdas aparentes de agua': 'vol_perdas_aparentes', 'Volume de perdas reais de agua': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
     }, inplace=True)
 
@@ -54,7 +48,6 @@ try:
         df_dados_processando['pct_pop_urbana'] = (df_dados_processando['pop_urbana'] / df_dados_processando['pop_total'] * 100).fillna(0)
         df_dados_processando['pct_pop_rural'] = (df_dados_processando['pop_rural'] / df_dados_processando['pop_total'] * 100).fillna(0)
         
-        # Atribuição final para a variável global
         df_dados = df_dados_processando
         
         print("SUCESSO: Dados carregados e processados!")
@@ -64,7 +57,6 @@ try:
 except Exception as e:
     print(f"\nERRO INESPERADO DURANTE O CARREGAMENTO: {e}")
     print("O DataFrame 'df_dados' permanecerá vazio. As chamadas de API retornarão erro.")
-
 
 # --- O restante do código permanece o mesmo ---
 
@@ -102,7 +94,6 @@ def dados_municipio(nome_municipio):
 @app.route('/api/municipios')
 def get_municipios():
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    # Filtra qualquer possível valor não-string na coluna Municipio antes de processar
     municipios_validos = df_dados[df_dados['Municipio'].apply(lambda x: isinstance(x, str))]['Municipio']
     lista_municipios = sorted(municipios_validos.dropna().unique().tolist())
     return jsonify(lista_municipios)
