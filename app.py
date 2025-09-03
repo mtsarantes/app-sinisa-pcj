@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from flask import Flask, jsonify, render_template
 from flask_cors import CORS
+import unidecode
 
 # --- Configuração do Flask ---
 app = Flask(__name__)
@@ -17,7 +18,6 @@ def carregar_dados():
     global df_dados
     try:
         print("--- INICIANDO CARREGAMENTO DOS DADOS ---")
-        # Caminho absoluto do CSV
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(BASE_DIR, 'dados_limpos_pcj.csv')
 
@@ -51,7 +51,14 @@ def carregar_dados():
             'Meta 2025': 'Meta_2025'
         }, inplace=True)
 
-        # Converte colunas numéricas
+        # Função para converter valores numéricos
+        def convert_num(col):
+            return (df_temp[col]
+                    .astype(str)
+                    .str.replace('%', '', regex=False)
+                    .str.replace(',', '.', regex=False)
+                    .apply(pd.to_numeric, errors='coerce'))
+
         cols_to_convert = [
             'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido',
             'vol_micromedido', 'perdas_percentual', 'perdas_lineares', 'perdas_por_ligacao',
@@ -59,14 +66,15 @@ def carregar_dados():
         ]
         for col in cols_to_convert:
             if col in df_temp.columns:
-                df_temp[col] = pd.to_numeric(df_temp[col].astype(str).str.replace(',', '.'), errors='coerce')
+                df_temp[col] = convert_num(col)
 
         # Calcula percentuais de população urbana e rural
         df_temp['pct_pop_urbana'] = (df_temp['pop_urbana'] / df_temp['pop_total']) * 100
         df_temp['pct_pop_rural'] = (df_temp['pop_rural'] / df_temp['pop_total']) * 100
 
-        # Remove espaços dos nomes de municípios
+        # Remove espaços dos nomes de municípios e normaliza
         df_temp['Municipio'] = df_temp['Municipio'].str.strip()
+        df_temp['Municipio_normalizado'] = df_temp['Municipio'].apply(lambda x: unidecode.unidecode(str(x)).lower())
 
         # Atribui ao dataframe global
         df_dados = df_temp
@@ -121,8 +129,8 @@ def dados_municipio(nome_municipio):
     if df_dados.empty:
         return jsonify({"erro": "Dados não carregados no servidor."}), 500
 
-    df_filtrado = df_dados[df_dados['Municipio'].notna() & df_dados['Municipio'].apply(lambda x: isinstance(x, str))]
-    municipio_encontrado = df_filtrado[df_filtrado['Municipio'].str.lower() == nome_municipio.lower()]
+    nome_municipio_norm = unidecode.unidecode(nome_municipio).lower()
+    municipio_encontrado = df_dados[df_dados['Municipio_normalizado'] == nome_municipio_norm]
 
     if municipio_encontrado.empty:
         return jsonify({"erro": "Município não encontrado."}), 404
