@@ -24,25 +24,7 @@ try:
     # Pulando as 2 linhas extras (unidades, códigos)
     df_dados = df_temp.iloc[2:].reset_index(drop=True)
 
-    # Renomeando as colunas com os nomes corretos em português (agora serão lidos corretamente)
-    df_dados.rename(columns={
-        'Município': 'Municipio',
-        'População Total Residente ': 'pop_total',
-        'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente ': 'pop_rural',
-        'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido',
-        'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais',
-        'Meta 2025': 'Meta_2025'
-    }, inplace=True)
-
-    if 'Municipio' in df_dados.columns:
+     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip()
         
         cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 
@@ -103,3 +85,4 @@ if __name__ == '__main__':
         app.run(debug=True)
     else:
         print("\nServidor não iniciado devido a erro no carregamento dos dados.")
+
