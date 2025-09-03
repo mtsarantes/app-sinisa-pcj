@@ -34,7 +34,7 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
 
     df.columns = df.columns.str.strip()
 
-    # CORREÇÃO: Lista expandida com todas as colunas numéricas do CSV, incluindo Meta 2025
+    # Lista de colunas numéricas do CSV, incluindo Meta 2025
     numeric_cols = [
         'População Total Residente', 'População Urbana Residente', 'População Rural Residente',
         'População urbana atendida com rede de abastecimento de água', 'População rural atendida com rede de abastecimento de água',
@@ -57,7 +57,8 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
         'Perdas totais de água na distribuição', 'Índice de setorização', 'Volume de perdas aparentes',
         'Volume de perdas reais', 'Índice de atendimento total de esgoto', 'Índice de tratamento de esgoto',
         'Índice de atendimento total de esgoto referente à água consumida',
-        'Meta 2025' # Coluna adicionada para processamento numérico
+        'Meta 2025', 'Perdas totais de água por ligação', 'Perdas totais lineares de água na rede de distribuição',
+        'Incidência de ligações de água setorizadas', 'Volume de perdas aparentes de água', 'Volume de perdas reais de água'
     ]
 
     for col in numeric_cols:
@@ -71,8 +72,6 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
     df['% Pop. Urbana'] = (df['População Urbana Residente'] / df['População Total Residente']) * 100
     df['% Pop. Rural'] = (df['População Rural Residente'] / df['População Total Residente']) * 100
     df.replace([np.inf, -np.inf], np.nan, inplace=True) # Converte 'inf' para NaN
-
-    # CORREÇÃO: Linha que criava a coluna 'Meta 2025' foi removida.
     
     categorical_cols = ['Macrorregião', 'UF', 'Natureza Juridica']
     for col in categorical_cols:
@@ -136,13 +135,14 @@ def dados_municipio(nome_municipio: str):
                 'volume_micromedido': data_dict.get('Volume de água micromedido')
             },
             'indicadores_metas': {
+                # CORREÇÃO: Nomes das colunas ajustados para remover as unidades
                 'perdas_distribuicao': data_dict.get('Perdas totais de água na distribuição'),
-                'meta_2025': data_dict.get('Meta 2025'), # Agora buscará o valor real do CSV
-                'perdas_por_ligacao': data_dict.get('Índice de perdas por ligação'),
-                'perdas_lineares': data_dict.get('Índice de perdas lineares'),
-                'incidencia_setorizacao': data_dict.get('Índice de setorização'),
-                'volume_perdas_aparentes': data_dict.get('Volume de perdas aparentes'),
-                'volume_perdas_reais': data_dict.get('Volume de perdas reais')
+                'meta_2025': data_dict.get('Meta 2025'),
+                'perdas_por_ligacao': data_dict.get('Perdas totais de água por ligação'),
+                'perdas_lineares': data_dict.get('Perdas totais lineares de água na rede de distribuição'),
+                'incidencia_setorizacao': data_dict.get('Incidência de ligações de água setorizadas'),
+                'volume_perdas_aparentes': data_dict.get('Volume de perdas aparentes de água'),
+                'volume_perdas_reais': data_dict.get('Volume de perdas reais de água')
             }
         }
 
