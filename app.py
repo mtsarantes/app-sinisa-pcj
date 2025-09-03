@@ -1,100 +1,124 @@
 import pandas as pd
-from flask import Flask, jsonify
-from flask_cors import CORS
-import numpy as np
+from flask import Flask, jsonify, Response
+from flask_caching import Cache
+import orjson # Biblioteca de JSON de alta performance
 
-# --- Configuração da Aplicação ---
-app = Flask(__name__, static_folder='.', static_url_path='')
-CORS(app) 
-app.config['JSON_AS_ASCII'] = False
+# --- Configuração da Aplicação e Cache ---
+# Configuração para um cache simples em memória, ideal para ambientes de servidor único.
+# O timeout define que cada item no cache expira após 1 hora (3600 segundos).
+config = {
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 3600
+}
 
-df_dados = pd.DataFrame()
-DATA_LOAD_ERROR = None
+app = Flask(__name__)
+app.config.from_mapping(config)
+cache = Cache(app)
 
-def to_numeric_br(series):
-    return pd.to_numeric(
-        series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), 
-        errors='coerce'
+# --- Carregamento e Preparação de Dados ---
+def load_and_prepare_data(filepath: str) -> pd.DataFrame:
+    """
+    Carrega, limpa e otimiza o conjunto de dados a partir de um ficheiro CSV.
+    Esta função é executada apenas uma vez no arranque da aplicação.
+    """
+    # 1. Carregamento estratégico com limpeza proativa (Secção 1.1)
+    na_markers =
+    # Assumindo que as duas primeiras linhas são metadados. Ajustar se necessário.
+    df = pd.read_csv(
+        filepath,
+        sep=';',
+        encoding='utf-8',
+        na_values=na_markers,
+        skiprows= 
     )
 
-try:
-    caminho_arquivo = "dados_limpos_pcj.csv"
-    print(f"Lendo o arquivo: {caminho_arquivo}")
-
-    header_row = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', nrows=1, header=None).iloc[0]
-    df_dados = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', header=None, skiprows=3)
-    df_dados.columns = header_row
-
-    rename_map = {
-        'Município': 'Municipio', 'Meta 2025': 'Meta_2025',
-        'População Total Residente ': 'pop_total', 'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente ': 'pop_rural', 'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido', 'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais'
-    }
-    df_dados.rename(columns=rename_map, inplace=True)
-
-    if 'Municipio' in df_dados.columns:
-        df_dados['Municipio'] = df_dados['Municipio'].str.strip()
-        cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 'vol_micromedido', 'perdas_percentual','perdas_lineares', 'perdas_por_ligacao', 'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025']
-        for col in cols_to_convert:
-            if col in df_dados.columns:
-                df_dados[col] = to_numeric_br(df_dados[col])
-        df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
-        df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
-        print(">>> SUCESSO: Dados carregados e processados!")
-    else:
-        raise Exception("A coluna 'Municipio' não foi encontrada.")
-        
-except Exception as e:
-    DATA_LOAD_ERROR = str(e)
-    print(f"\n--- ERRO AO CARREGAR OS DADOS: {e} ---")
-
-# --- Rotas da API ---
-
-@app.route('/')
-def index():
-    return app.send_static_file('index.html')
-
-@app.route('/api/municipio/<nome_municipio>')
-def dados_municipio(nome_municipio):
-    if df_dados.empty: return jsonify({"erro": "Dados não carregados no servidor."}), 500
+    # 2. Sanitização e otimização de memória (Secção 1.2)
+    # Identificar colunas que deveriam ser numéricas para conversão
+    # Esta lista deve ser expandida com base nas colunas reais do ficheiro
+    numeric_cols =
     
-    municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
+    for col in numeric_cols:
+        if col in df.columns:
+            # Converte para numérico, forçando erros para NaN, e faz downcast
+            df[col] = pd.to_numeric(df[col], errors='coerce', downcast='float')
+
+    # Converter colunas de baixa cardinalidade para o tipo 'category' para economizar memória
+    categorical_cols = ['Macrorregião', 'UF', 'Natureza Juridica']
+    for col in categorical_cols:
+        if col in df.columns:
+            df[col] = df[col].astype('category')
+
+    # 3. Preparação para pesquisas rápidas (Secção 2.2)
+    # Definir a coluna 'Município' como índice para pesquisas O(1)
+    df.set_index('Município', inplace=True)
     
-    if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
-    else:
-        dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
+    # Remover colunas que possam ter nomes problemáticos ou que não sejam necessárias
+    df.columns = df.columns.str.strip()
+
+    print(">>> SUCESSO: Dados carregados, limpos e otimizados!")
+    return df
+
+# Carrega os dados globalmente quando o servidor inicia
+# Idealmente, este seria um ficheiro.parquet para um carregamento mais rápido
+caminho_arquivo = 'dados_limpos_pcj.csv'
+dados_pcj = load_and_prepare_data(caminho_arquivo)
+
+# --- Endpoints da API ---
+
+@app.route('/api/municipio/<string:nome_municipio>')
+@cache.cached() # Aplica o cache a este endpoint (Secção 3.2)
+def dados_municipio(nome_municipio: str):
+    """
+    Retorna os dados completos para um município específico.
+    Utiliza pesquisa indexada para performance máxima.
+    """
+    try:
+        # 1. Pesquisa O(1) usando.loc no índice (Secção 2.2)
+        # O.strip() garante que espaços em branco acidentais no URL não quebrem a pesquisa
+        dados = dados_pcj.loc[nome_municipio.strip()]
+
+        # 2. Substituir NaN por None para compatibilidade JSON
+        # O fillna(None) é mais idiomático que um loop manual
+        dados_limpos = dados.where(pd.notna(dados), None)
+
+        # 3. Serialização eficiente para JSON (Secção 2.3)
+        # Converter a Series para um dicionário e usar orjson para performance
+        data_dict = dados_limpos.to_dict()
         
-        # AQUI ESTÁ A CORREÇÃO FINAL: Garante que todos os valores numéricos são tipos padrão do Python
-        for key, value in dados_formatados.items():
-            if isinstance(value, np.generic):
-                dados_formatados[key] = None if pd.isna(value) else value.item()
+        # Usar orjson para uma serialização mais rápida que o jsonify padrão
+        return Response(orjson.dumps(data_dict), mimetype='application/json')
 
-        return jsonify(dados_formatados)
+    except KeyError:
+        # Retorna um erro 404 se o município não for encontrado no índice
+        return jsonify({"erro": f"Município '{nome_municipio}' não encontrado."}), 404
+    except Exception as e:
+        # Captura outros erros inesperados
+        return jsonify({"erro": "Ocorreu um erro interno no servidor.", "detalhes": str(e)}), 500
 
-# Outras rotas (rankings, lista de municipios)
-@app.route('/api/ranking/perdas')
+@app.route('/api/rankings/perdas')
+@cache.cached()
 def ranking_perdas():
-    if df_dados.empty: return jsonify([]), 500
-    ranking_df = df_dados.dropna(subset=['perdas_percentual', 'Municipio']).sort_values(by='perdas_percentual', ascending=True).reset_index(drop=True)
-    ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
-    return jsonify(ranking_df[['Posicao', 'Municipio', 'perdas_percentual']].to_dict(orient='records'))
+    """
+    Retorna um ranking dos municípios com base no índice de perdas.
+    """
+    try:
+        # Assegurar que a coluna de perdas existe e é numérica
+        coluna_perdas = 'Perdas totais de água na distribuição'
+        if coluna_perdas not in dados_pcj.columns:
+            return jsonify({"erro": f"Coluna '{coluna_perdas}' não encontrada."}), 500
 
-@app.route('/api/ranking/perdas_por_ligacao')
-def ranking_perdas_por_ligacao():
-    if df_dados.empty: return jsonify([]), 500
-    ranking_df = df_dados.dropna(subset=['perdas_por_ligacao', 'Municipio']).sort_values(by='perdas_por_ligacao', ascending=True).reset_index(drop=True)
-    ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
-    return jsonify(ranking_df[['Posicao', 'Municipio', 'perdas_por_ligacao']].to_dict(orient='records'))
+        # Criar o ranking, removendo valores nulos e ordenando
+        ranking = dados_pcj[[coluna_perdas]].dropna().sort_values(by=coluna_perdas, ascending=False)
+        
+        # Resetar o índice para que 'Município' se torne uma coluna novamente
+        ranking_dict = ranking.reset_index().to_dict(orient='records')
+        
+        return Response(orjson.dumps(ranking_dict), mimetype='application/json')
 
-@app.route('/api/municipios')
-def get_municipios():
-    if df_dados.empty: return jsonify([]), 500
-    lista_municipios = sorted(df_dados['Municipio'].dropna().unique().tolist())
-    return jsonify(lista_municipios)
+    except Exception as e:
+        return jsonify({"erro": "Ocorreu um erro ao gerar o ranking.", "detalhes": str(e)}), 500
+
+# O bloco a seguir é apenas para execução local (desenvolvimento).
+# Em produção, o Gunicorn irá importar e executar o objeto 'app'.
+if __name__ == '__main__':
+    app.run(debug=True)
