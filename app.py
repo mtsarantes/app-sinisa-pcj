@@ -19,7 +19,7 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
     Carrega, limpa e otimiza o conjunto de dados a partir de um ficheiro CSV.
     Esta função é executada apenas uma vez no arranque da aplicação.
     """
-    # CORRIGIDO: Lista de valores a serem tratados como nulos, preenchida.
+    # CORRIGIDO: Lista de valores a serem tratados como nulos, agora preenchida.
     na_markers =
     
     # Lê o cabeçalho da primeira linha (índice 0) e ignora as duas linhas seguintes.
@@ -35,7 +35,7 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
     # Remove espaços em branco dos nomes das colunas
     df.columns = df.columns.str.strip()
 
-    # CORRIGIDO: Lista de colunas numéricas a serem otimizadas, preenchida.
+    # CORRIGIDO: Lista de colunas numéricas a serem otimizadas, agora preenchida.
     numeric_cols =
     
     for col in numeric_cols:
