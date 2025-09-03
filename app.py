@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-CSV_PATH = "dados.csv"  # caminho do seu CSV
+CSV_PATH = "dados_limpos_pcj.csv"  # caminho do seu CSV
 
 def carregar_dados():
     try:
@@ -58,3 +58,4 @@ def detalhe_municipio(nome):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
