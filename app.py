@@ -12,11 +12,6 @@ df_dados = pd.DataFrame()
 
 try:
     print("PASSO 1: Lendo o arquivo 'dados_limpos_pcj.csv'...")
-    
-    # A CORREÇÃO PRINCIPAL:
-    # header=0 -> Usa a primeira linha como cabeçalho.
-    # skiprows=[1, 2] -> Pula a segunda (unidades) e a terceira (códigos) linhas.
-    # engine='python' -> Garante a leitura correta mesmo com vírgulas extras no texto.
     df_temp = pd.read_csv(
         'dados_limpos_pcj.csv', 
         sep=',', 
@@ -27,7 +22,6 @@ try:
     )
     
     print("PASSO 2: Limpando espaços em branco dos nomes das colunas...")
-    # Isso remove espaços extras no início ou fim dos nomes do cabeçalho
     df_temp.columns = df_temp.columns.str.strip()
 
     print("PASSO 3: Renomeando colunas para nomes padronizados...")
@@ -65,12 +59,10 @@ try:
         df_temp['pct_pop_urbana'] = (df_temp['pop_urbana'] / df_temp['pop_total'] * 100).fillna(0)
         df_temp['pct_pop_rural'] = (df_temp['pop_rural'] / df_temp['pop_total'] * 100).fillna(0)
         
-        # Atribui o dataframe processado à variável global
         df_dados = df_temp
         
         print("SUCESSO: Dados carregados e prontos para uso!")
     else:
-        # Imprime as colunas encontradas para ajudar a depurar, caso o erro persista
         print("COLUNAS ENCONTRADAS APÓS LIMPEZA:", df_temp.columns.tolist())
         raise Exception("A coluna 'Municipio' não foi encontrada após a renomeação.")
         
@@ -102,10 +94,17 @@ def ranking_perdas_por_ligacao():
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
     return jsonify(ranking_df.to_dict(orient='records'))
 
+# A CORREÇÃO ESTÁ NESTA FUNÇÃO ABAIXO
 @app.route('/api/municipio/<nome_municipio>')
 def dados_municipio(nome_municipio):
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
+    
+    # Filtra o DataFrame para trabalhar apenas com linhas onde 'Municipio' é um texto válido (ignora nulos/vazios)
+    df_filtrado = df_dados[df_dados['Municipio'].notna() & df_dados['Municipio'].apply(isinstance, args=(str,))]
+    
+    # Realiza a busca case-insensitive no DataFrame já filtrado e seguro
+    municipio_encontrado = df_filtrado[df_filtrado['Municipio'].str.lower() == nome_municipio.lower()]
+    
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
         dados_formatados = municipio_encontrado.iloc[0].replace({np.nan: 'N/D'}).to_dict()
