@@ -12,22 +12,19 @@ df_dados = pd.DataFrame()
 DATA_LOAD_ERROR = None
 
 def to_numeric_br(series):
-    # Função robusta para converter números no formato brasileiro
     return pd.to_numeric(
         series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), 
-        errors='coerce'  # Transforma textos inválidos em 'NaN' (Not a Number)
+        errors='coerce'
     )
 
 try:
     caminho_arquivo = "dados_limpos_pcj.csv"
     print(f"Lendo o arquivo: {caminho_arquivo}")
 
-    # Leitura robusta: lê o cabeçalho e os dados separadamente
     header_row = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', nrows=1, header=None).iloc[0]
     df_dados = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', header=None, skiprows=3)
     df_dados.columns = header_row
 
-    # Dicionário de renomeação para nomes simples
     rename_map = {
         'Município': 'Municipio', 'Meta 2025': 'Meta_2025',
         'População Total Residente ': 'pop_total', 'População Urbana Residente': 'pop_urbana',
@@ -44,24 +41,15 @@ try:
 
     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip()
-        
-        # Lista completa de colunas para converter para número
-        cols_to_convert = [
-            'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 
-            'vol_micromedido', 'perdas_percentual', 'perdas_lineares', 'perdas_por_ligacao', 
-            'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025'
-        ]
+        cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 'vol_micromedido', 'perdas_percentual','perdas_lineares', 'perdas_por_ligacao', 'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025']
         for col in cols_to_convert:
             if col in df_dados.columns:
                 df_dados[col] = to_numeric_br(df_dados[col])
-        
-        # Cálculos derivados
         df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
         df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
-        
         print(">>> SUCESSO: Dados carregados e processados!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
+        raise Exception("A coluna 'Municipio' não foi encontrada.")
         
 except Exception as e:
     DATA_LOAD_ERROR = str(e)
@@ -81,13 +69,12 @@ def dados_municipio(nome_municipio):
     
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
-        # Converte a linha para um dicionário Python padrão, substituindo NaN por 'N/D'
-        dados_formatados = municipio_encontrado.iloc[0].where(pd.notna(municipio_encontrado.iloc[0]), 'N/D').to_dict()
+        dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
         
-        # Garante que todos os valores numéricos são tipos padrão do Python, seguros para JSON
+        # AQUI ESTÁ A CORREÇÃO FINAL: Garante que todos os valores numéricos são tipos padrão do Python
         for key, value in dados_formatados.items():
             if isinstance(value, np.generic):
-                dados_formatados[key] = value.item()
+                dados_formatados[key] = None if pd.isna(value) else value.item()
 
         return jsonify(dados_formatados)
 
