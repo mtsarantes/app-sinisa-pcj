@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SINISA PCJ - Eficiência</title>
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:16px;background-color:#f0f2f5;color:#333}h1,h2,h3{color:#1c5a9b}h2{border-bottom:2px solid #1c5a9b;padding-bottom:8px}main{background-color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);padding:16px;margin-top:24px}.search-container{display:flex;gap:8px;margin-bottom:24px}#municipio-select{flex-grow:1;padding:12px;border:1px solid #ccc;border-radius:6px;font-size:1rem;background-color:#fff}#search-button{padding:12px 16px;border:none;background-color:#1c5a9b;color:#fff;border-radius:6px;font-size:1rem;cursor:pointer}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.info-item{background-color:#f8f9fa;padding:12px;border-radius:6px;border-left:4px solid #1c5a9b}.info-item .label{font-weight:700;color:#333;display:block;margin-bottom:4px}.info-item .value{font-size:1.1rem;color:#555}
+        .meta-status { font-size: 0.85rem; margin-top: 4px; border-top: 1px solid #eee; padding-top: 4px; }
+        .status-met { color: green; font-weight: bold; }
+        .status-not-met { color: red; font-weight: bold; }
+        .comparison { font-size: 0.85rem; margin-top: 4px; font-weight: bold; }
+        .comparison.worse, .ranking-worse { color: red; }
+        .comparison.better { color: green; }
+        table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #e0e0e0}thead{background-color:#1c5a9b;color:#fff}tbody tr:nth-child(even){background-color:#f8f9fa}td:first-child,th:first-child{text-align:center;font-weight:700}
+        footer{text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #ccc;font-size:.9rem;color:#666}
+    </style>
+</head>
+<body>
+    <header style="text-align: center;"><h1>Consulta de Eficiência Hídrica - Bacias PCJ</h1></header>
+    <main>
+        <h2>Dados Gerais da Bacia PCJ</h2>
+        <div class="info-grid">
+            <div class="info-item"><span class="label">População Total</span><span class="value">6.504.659</span></div>
+            <div class="info-item"><span class="label">População Rural</span><span class="value">316.804</span></div>
+            <div class="info-item"><span class="label">Volume Produzido (mil m³/ano)</span><span class="value">671.067,69</span></div>
+            <div class="info-item"><span class="label">Volume Consumido (mil m³/ano)</span><span class="value">421.075,29</span></div>
+            <div class="info-item"><span class="label">Índice de Perdas (%)</span><span class="value">35,44%</span> <div class="meta-status"><span class="status-not-met">Meta do Plano: 25,00%</span></div></div>
+            <div class="info-item"><span class="label">Índice de Perdas por Ligação</span><span class="value">296,25 L/lig/dia</span></div>
+        </div>
+    </main>
+    <main>
+        <h2>Consulta por Município</h2>
+        <div class="search-container">
+            <select id="municipio-select"><option value="">Selecione um município...</option></select>
+            <button id="search-button">Buscar</button>
+        </div>
+        <div id="municipio-resultado"></div>
+    </main>
+    <main style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+            <h2>Ranking: Perdas (%)</h2>
+            <table id="ranking-percentual-table">
+                <thead><tr><th>Pos.</th><th>Município</th><th>Índice</th></tr></thead>
+                <tbody id="ranking-percentual-body"><tr><td colspan="3" style="text-align: center;">...</td></tr></tbody>
+            </table>
+        </div>
+        <div>
+            <h2>Ranking: Perdas por Ligação (L/dia)</h2>
+            <table id="ranking-ligacao-table">
+                <thead><tr><th>Pos.</th><th>Município</th><th>Índice</th></tr></thead>
+                <tbody id="ranking-ligacao-body"><tr><td colspan="3" style="text-align: center;">...</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+    <footer>Desenvolvido por: Câmara Técnica de Saneamento.</footer>
+    <script>
+        const baciaValores = { perdas_percentual: 35.44, perdas_por_ligacao: 296.25 };
+        function formatarNumero(valor, casasDecimais = 2) { if (valor === 'N/D' || valor === null || valor === undefined) return 'N/D'; const numero = Number(String(valor).replace(",",".")); if (isNaN(numero)) { return 'N/D'; } return numero.toLocaleString('pt-BR', { minimumFractionDigits: casasDecimais, maximumFractionDigits: casasDecimais }); }
+        const searchButton=document.getElementById("search-button"),municipioSelect=document.getElementById("municipio-select"),resultadoDiv=document.getElementById("municipio-resultado");
+        async function buscarMunicipio(){
+            const municipioNome=municipioSelect.value;
+            if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Selecione um município.</p>'; return;}
+            resultadoDiv.innerHTML="<p>Buscando...</p>";
+            try {
+                const response = await fetch(`/api/municipio/${municipioNome}`);
+                const municipio = await response.json();
+                if (municipio.erro) { resultadoDiv.innerHTML = `<p style="color: red;">${municipio.erro}</p>`; return; }
+                function getComparisonTo2025Goal(valorAtual, meta2025) { if (meta2025 === 'N/D' || valorAtual === 'N/D' || !meta2025) return '<div class="meta-status">Meta 2025: N/D</div>'; const valAtualNum = Number(String(valorAtual).replace(",",".")); const metaNum = Number(meta2025); if(isNaN(valAtualNum) || isNaN(metaNum)) return '<div class="meta-status">Meta 2025: N/D</div>'; const status = valAtualNum <= metaNum ? '<span class="status-met">Atingida</span>' : '<span class="status-not-met">Não Atingida</span>'; return `<div class="meta-status">Meta 2025: ${formatarNumero(metaNum)}% (${status})</div>`; }
+                resultadoDiv.innerHTML = `<h3>Dados Gerais: ${municipio.Municipio}</h3><div class="info-grid"><div class="info-item"><span class="label">População Total</span><span class="value">${formatarNumero(municipio.pop_total, 0)}</span></div><div class="info-item"><span class="label">% Pop. Urbana</span><span class="value">${formatarNumero(municipio.pct_pop_urbana)} %</span></div><div class="info-item"><span class="label">% Pop. Rural</span><span class="value">${formatarNumero(municipio.pct_pop_rural)} %</span></div><div class="info-item"><span class="label">Volume Produzido</span><span class="value">${formatarNumero(municipio.vol_produzido)} mil m³/ano</span></div><div class="info-item"><span class="label">Volume Consumido</span><span class="value">${formatarNumero(municipio.vol_consumido)} mil m³/ano</span></div><div class="info-item"><span class="label">Volume Micromedido</span><span class="value">${formatarNumero(municipio.vol_micromedido)} mil m³/ano</span></div></div><h3 style="margin-top: 24px;">Indicadores e Metas de Perdas</h3><div class="info-grid"><div class="info-item"><span class="label">Perdas na Distribuição (%)</span><span class="value">${formatarNumero(municipio.perdas_percentual)} %</span>${getComparisonTo2025Goal(municipio.perdas_percentual, municipio.Meta_2025)}</div><div class="info-item"><span class="label">Perdas por Ligação (L/dia)</span><span class="value">${formatarNumero(municipio.perdas_por_ligacao)} L/lig/dia</span></div><div class="info-item"><span class="label">Perdas Lineares</span><span class="value">${formatarNumero(municipio.perdas_lineares)} m³/km/dia</span></div><div class="info-item"><span class="label">Incidência de Setorização</span><span class="value">${formatarNumero(municipio.incidencia_setorizadas)} %</span></div><div class="info-item"><span class="label">Volume de Perdas Aparentes</span><span class="value">${formatarNumero(municipio.vol_perdas_aparentes)} mil m³/ano</span></div><div class="info-item"><span class="label">Volume de Perdas Reais</span><span class="value">${formatarNumero(municipio.vol_perdas_reais)} mil m³/ano</span></div></div>`;
+            } catch(e) { console.error("Erro na busca:",e); resultadoDiv.innerHTML='<p style="color: red;">Falha na conexão.</p>'; }
+        }
+        searchButton.addEventListener("click", buscarMunicipio);
+        async function carregarDadosIniciais(){
+            async function carregarAPIData(url, tableBodyId, formatRow) { const tbody = document.getElementById(tableBodyId); try { const response = await fetch(url); const data = await response.json(); tbody.innerHTML = ""; data.forEach((item, index) => formatRow(tbody, item, index + 1)); } catch (error) { console.error(`Erro ao carregar ${url}:`, error); tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: red;">Erro ao carregar dados!</td></tr>`; } }
+            async function carregarMunicipios(){ try { const response = await fetch('/api/municipios'); const data = await response.json(); data.forEach(nome => { const option = document.createElement("option"); option.value = nome; option.textContent = nome; municipioSelect.appendChild(option); }); } catch (error) { console.error("Erro ao carregar municípios", error); } }
+            carregarMunicipios();
+            carregarAPIData('/api/ranking/perdas', 'ranking-percentual-body', (tbody, item, pos) => { const row = tbody.insertRow(); const valorNum = Number(String(item.perdas_percentual).replace(",",".")); row.innerHTML = `<td>${pos}</td><td>${item.Municipio}</td><td class="${valorNum > baciaValores.perdas_percentual ? 'ranking-worse' : ''}">${formatarNumero(item.perdas_percentual)}%</td>`; });
+            carregarAPIData('/api/ranking/perdas_por_ligacao', 'ranking-ligacao-body', (tbody, item, pos) => { const row = tbody.insertRow(); const valorNum = Number(String(item.perdas_por_ligacao).replace(",",".")); row.innerHTML = `<td>${pos}</td><td>${item.Municipio}</td><td class="${valorNum > baciaValores.perdas_por_ligacao ? 'ranking-worse' : ''}">${formatarNumero(item.perdas_por_ligacao)}</td>`; });
+        }
+        window.onload = carregarDadosIniciais;
+    </script>
+</body>
+</html>
