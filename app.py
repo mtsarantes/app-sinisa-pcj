@@ -12,23 +12,22 @@ df_dados = pd.DataFrame()
 DATA_LOAD_ERROR = None
 
 def to_numeric_br(series):
-    return pd.to_numeric(series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), errors='coerce')
-
-# --- DADOS DAS METAS 2025 ---
-metas_data = {
-    'Municipio_Meta': ['Águas de São Pedro', 'Americana', 'Amparo', 'Analândia', 'Artur Nogueira', 'Atibaia', 'Bom Jesus dos Perdões', 'Bragança Paulista', 'Cabreúva', 'Camanducaia', 'Campinas', 'Campo Limpo Paulista', 'Capivari', 'Charqueada', 'Cordeirópolis', 'Corumbataí', 'Cosmópolis', 'Dois Córregos', 'Elias Fausto', 'Extrema', 'Holambra', 'Hortolândia', 'Indaiatuba', 'Ipeúna', 'Iracemápolis', 'Itapeva', 'Itatiba', 'Itirapina', 'Itupeva', 'Jaguariúna', 'Jarinu', 'Joanópolis', 'Jundiaí', 'Limeira', 'Louveira', 'Mairiporã', 'Mogi Mirim', 'Mombuca', 'Monte Alegre do Sul', 'Monte Mor', 'Morungaba', 'Nazaré Paulista', 'Nova Odessa', 'Paulínia', 'Pedra Bela', 'Pedreira', 'Pinhalzinho', 'Piracaia', 'Piracicaba', 'Rafard', 'Rio Claro', 'Rio das Pedras', 'Saltinho', 'Salto', "Santa Bárbara d'Oeste", 'Santa Gertrudes', 'Santa Maria da Serra', 'Santo Antônio de Posse', 'São Pedro', 'Sapucaí-Mirim', 'Socorro', 'Sumaré', 'Toledo', 'Torrinha', 'Tuiuti', 'Valinhos', 'Vargem', 'Várzea Paulista', 'Vinhedo'],
-    'Meta_2025': [30, 26, 25, 50, 25, 25, 23, 27, 31, 28, 22, 39, 29, 36, 20, 17, 25, 45, 23, 32, 30, 28, 25, 26, 34, 30, 37, 25, 25, 42, 39, 17, 38, 16, 27, 34, 46, 19, 25, 30, 32, 28, 25, 30, 11, 25, 28, 29, 31, 24, 39, 25, 58, 44, 25, 20, 19, 12, 60, 17, 23, 48, 30, 37, 53, 25, 30, 35, 25]
-}
-df_metas = pd.DataFrame(metas_data)
+    # Função robusta para converter números no formato brasileiro
+    return pd.to_numeric(
+        series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), 
+        errors='coerce'
+    )
 
 try:
-    caminho_arquivo = "Copilado SINISA 2023 - PCJ.xlsx - Gestão Técnica.csv"
-    print(f"Lendo o arquivo original: {caminho_arquivo}")
+    caminho_arquivo = "dados_limpos_pcj.csv"
+    print(f"Lendo o arquivo: {caminho_arquivo}")
 
-    df_temp = pd.read_csv(caminho_arquivo, sep=',', encoding='latin-1', header=7) # Lendo o CSV original
-    df_dados = df_temp.iloc[2:].reset_index(drop=True)
+    # Leitura robusta: lê o cabeçalho e os dados separadamente
+    header_row = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', nrows=1, header=None).iloc[0]
+    df_dados = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', header=None, skiprows=3)
+    df_dados.columns = header_row
 
-    # Renomeando as colunas para nomes simples
+    # Dicionário de renomeação para nomes simples
     rename_map = {
         'Município': 'Municipio', 'Meta 2025': 'Meta_2025',
         'População Total Residente ': 'pop_total', 'População Urbana Residente': 'pop_urbana',
@@ -42,32 +41,33 @@ try:
         'Volume de perdas reais de água': 'vol_perdas_reais'
     }
     df_dados.rename(columns=rename_map, inplace=True)
-    df_dados.rename(columns=lambda c: c.strip(), inplace=True) # Remove espaços extra dos nomes das colunas
 
     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip()
-        df_dados['Municipio_Meta'] = df_dados['Municipio'].str.replace('Santa Bárbara D Oeste', "Santa Bárbara d'Oeste")
         
-        df_dados = pd.merge(df_dados, df_metas, left_on='Municipio_Meta', right_on='Municipio_Meta', how='left')
-        
-        cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 'vol_micromedido', 'perdas_percentual','perdas_lineares', 'perdas_por_ligacao', 'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025']
+        # Lista completa de colunas para converter para número
+        cols_to_convert = [
+            'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 
+            'vol_micromedido', 'perdas_percentual', 'perdas_lineares', 'perdas_por_ligacao', 
+            'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025'
+        ]
         for col in cols_to_convert:
             if col in df_dados.columns:
                 df_dados[col] = to_numeric_br(df_dados[col])
         
+        # Cálculos derivados
         df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
         df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
         
         print(">>> SUCESSO: Dados carregados e processados!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada.")
+        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
         
 except Exception as e:
     DATA_LOAD_ERROR = str(e)
     print(f"\n--- ERRO AO CARREGAR OS DADOS: {e} ---")
 
 # --- Rotas da API ---
-# (O código das rotas abaixo permanece o mesmo)
 
 @app.route('/')
 def index():
@@ -76,15 +76,21 @@ def index():
 @app.route('/api/municipio/<nome_municipio>')
 def dados_municipio(nome_municipio):
     if df_dados.empty: return jsonify({"erro": "Dados não carregados no servidor."}), 500
+    
     municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
+    
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
         dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
+        
+        # CORREÇÃO FINAL: Garante que todos os valores são tipos padrão do Python antes de enviar
         for key, value in dados_formatados.items():
             if isinstance(value, np.generic):
                 dados_formatados[key] = None if pd.isna(value) else value.item()
+
         return jsonify(dados_formatados)
 
+# Outras rotas (rankings, lista de municipios)
 @app.route('/api/ranking/perdas')
 def ranking_perdas():
     if df_dados.empty: return jsonify([]), 500
