@@ -19,29 +19,28 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
     Carrega, limpa e otimiza o conjunto de dados a partir de um ficheiro CSV.
     Esta função é executada apenas uma vez no arranque da aplicação.
     """
-    # Corrigido: Valores exatos a serem tratados como nulos, encontrados no CSV.
+    # CORRIGIDO: Lista de valores a serem tratados como nulos, preenchida.
     na_markers =
     
-    # Corrigido: Lê o cabeçalho da primeira linha (índice 0) e ignora as duas linhas seguintes (unidades e cabeçalhos alternativos).
+    # Lê o cabeçalho da primeira linha (índice 0) e ignora as duas linhas seguintes.
     df = pd.read_csv(
         filepath,
         sep=';',
         encoding='utf-8',
         na_values=na_markers,
         header=0, # O cabeçalho está na primeira linha
-        skiprows=[1, 2] # Ignora a segunda e terceira linhas (índices 1 e 2)
+        skiprows=[1, 2] # Ignora a segunda e terceira linhas
     )
 
     # Remove espaços em branco dos nomes das colunas
     df.columns = df.columns.str.strip()
 
-    # Corrigido: Lista exata de colunas numéricas a serem otimizadas, com base no ficheiro.
+    # CORRIGIDO: Lista de colunas numéricas a serem otimizadas, preenchida.
     numeric_cols =
     
     for col in numeric_cols:
         if col in df.columns:
-            # Converte para numérico, forçando erros para NaN, e faz downcast para economizar memória.
-            # A conversão de vírgula para ponto é necessária para o padrão brasileiro.
+            # Converte para numérico, tratando vírgulas e forçando erros para NaN.
             if df[col].dtype == 'object':
                  df[col] = df[col].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce', downcast='float')
@@ -53,8 +52,8 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
             df[col] = df[col].astype('category')
 
     # Preparação para pesquisas rápidas: Definir a coluna 'Município' como índice.
-    # Garante que não há valores nulos na coluna do índice.
     df.dropna(subset=['Município'], inplace=True)
+    df['Município'] = df['Município'].str.strip()
     df.set_index('Município', inplace=True)
     
     print(">>> SUCESSO: Dados carregados, limpos e otimizados!")
@@ -83,7 +82,7 @@ def dados_municipio(nome_municipio: str):
         return Response(orjson.dumps({"erro": DATA_LOAD_ERROR}), status=500, mimetype='application/json')
 
     try:
-        # Pesquisa O(1) usando.loc no índice. O.strip() remove espaços acidentais.
+        # Pesquisa O(1) usando.loc no índice.
         dados = dados_pcj.loc[nome_municipio.strip()]
         
         # Substituir NaN por None para compatibilidade JSON
@@ -121,11 +120,8 @@ def ranking_perdas():
     except Exception as e:
         return Response(orjson.dumps({"erro": "Ocorreu um erro ao gerar o ranking.", "detalhes": str(e)}), status=500, mimetype='application/json')
 
-# Opcional: Adicionar outras rotas de ranking aqui, se necessário.
-
 # --- Fim dos Endpoints ---
 
 # Este bloco não é executado no Render, que usa Gunicorn.
-# É útil apenas para testes locais.
 if __name__ == '__main__':
     app.run(debug=True)
