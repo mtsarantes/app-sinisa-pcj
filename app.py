@@ -18,24 +18,24 @@ def to_numeric_br(series):
 try:
     print("Lendo o arquivo 'dados_limpos_pcj.csv' com o decodificador UTF-8-SIG e cabeçalho na linha 3...")
     
-    # A CORREÇÃO PRINCIPAL: Lendo o arquivo como 'utf-8-sig' e definindo o cabeçalho na linha de índice 2
+    # Lendo o arquivo como 'utf-8-sig' e definindo o cabeçalho na linha de índice 2
     df_dados = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=2)
     
-    # Renomeando as colunas com os nomes corretos em português (agora serão lidos corretamente)
+    # Renomeando as colunas com os nomes exatos do seu de-para
     df_dados.rename(columns={
         'Município': 'Municipio',
-        'População Total Residente ': 'pop_total',
-        'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente ': 'pop_rural',
-        'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido',
-        'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais',
+        'PopulaÃ§Ã£o Total Residente ': 'pop_total',
+        'PopulaÃ§Ã£o Urbana Residente': 'pop_urbana',
+        'PopulaÃ§Ã£o Rural Residente ': 'pop_rural',
+        'Volume de Ã¡gua produzido': 'vol_produzido',
+        'Volume de Ã¡gua consumido': 'vol_consumido',
+        'Volume de Ã¡gua micromedido': 'vol_micromedido',
+        'Perdas totais de Ã¡gua na distribuiÃ§Ã£o': 'perdas_percentual',
+        'Perdas totais lineares de Ã¡gua na rede de distribuiÃ§Ã£o': 'perdas_lineares',
+        'Perdas totais de Ã¡gua por ligaÃ§Ã£o': 'perdas_por_ligacao',
+        'IncidÃªncia de ligaÃ§Ãµes de Ã¡gua setorizadas': 'incidencia_setorizadas',
+        'Volume de perdas aparentes de Ã¡gua': 'vol_perdas_aparentes',
+        'Volume de perdas reais de Ã¡gua': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
     }, inplace=True)
     
@@ -108,7 +108,6 @@ def ranking_perdas_por_ligacao():
 def dados_municipio(nome_municipio):
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
     
-    # AQUI ESTÁ A CORREÇÃO: Agora, o nome do município já está em minúsculas
     municipio_encontrado = df_dados[df_dados['Municipio'] == nome_municipio.lower()]
     
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
