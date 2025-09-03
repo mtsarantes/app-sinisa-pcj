@@ -4,6 +4,7 @@ import numpy as np
 from flask import Flask, Response
 from flask_caching import Cache
 import orjson  # Biblioteca de JSON de alta performance
+import re      # Importado para a limpeza dos nomes das colunas
 
 # --- Configuração da Aplicação e Cache ---
 config = {
@@ -32,7 +33,10 @@ def load_and_prepare_data(filepath: str) -> pd.DataFrame:
         skiprows=[1, 2]
     )
 
-    df.columns = df.columns.str.strip()
+    # CORREÇÃO DEFINITIVA: Limpeza robusta dos nomes das colunas.
+    # Remove espaços no início/fim e substitui múltiplos espaços internos por um único.
+    # Isto resolve inconsistências invisíveis nos cabeçalhos do CSV.
+    df.columns = [re.sub(r'\s+', ' ', col).strip() for col in df.columns]
 
     # Lista de colunas numéricas do CSV, incluindo Meta 2025
     numeric_cols = [
@@ -135,7 +139,6 @@ def dados_municipio(nome_municipio: str):
                 'volume_micromedido': data_dict.get('Volume de água micromedido')
             },
             'indicadores_metas': {
-                # CORREÇÃO: Nomes das colunas ajustados para remover as unidades
                 'perdas_distribuicao': data_dict.get('Perdas totais de água na distribuição'),
                 'meta_2025': data_dict.get('Meta 2025'),
                 'perdas_por_ligacao': data_dict.get('Perdas totais de água por ligação'),
