@@ -70,7 +70,7 @@ except Exception as e:
     print(f"\nERRO CRÍTICO DURANTE O CARREGAMENTO DOS DADOS: {e}")
     print("A aplicação iniciará, mas o DataFrame de dados estará vazio.")
 
-# --- As rotas da API (backend) e da página (frontend) continuam iguais ---
+# --- As rotas da API (backend) e da página (frontend) ---
 
 @app.route('/')
 def home():
@@ -94,21 +94,33 @@ def ranking_perdas_por_ligacao():
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
     return jsonify(ranking_df.to_dict(orient='records'))
 
-# A CORREÇÃO ESTÁ NESTA FUNÇÃO ABAIXO
+# A CORREÇÃO FINAL ESTÁ AQUI
 @app.route('/api/municipio/<nome_municipio>')
 def dados_municipio(nome_municipio):
-    if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
+    # Log de diagnóstico para vermos no Render
+    print(f"Buscando detalhes para o município: '{nome_municipio}'")
     
-    # Filtra o DataFrame para trabalhar apenas com linhas onde 'Municipio' é um texto válido (ignora nulos/vazios)
-    df_filtrado = df_dados[df_dados['Municipio'].notna() & df_dados['Municipio'].apply(isinstance, args=(str,))]
+    if df_dados.empty:
+        print("ERRO DE BUSCA: O DataFrame principal está vazio.")
+        return jsonify({"erro": "Dados não carregados no servidor."}), 500
     
-    # Realiza a busca case-insensitive no DataFrame já filtrado e seguro
-    municipio_encontrado = df_filtrado[df_filtrado['Municipio'].str.lower() == nome_municipio.lower()]
-    
-    if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
-    else:
-        dados_formatados = municipio_encontrado.iloc[0].replace({np.nan: 'N/D'}).to_dict()
-        return jsonify(dados_formatados)
+    try:
+        # Filtra o DataFrame para trabalhar apenas com linhas onde 'Municipio' é um texto válido
+        df_filtrado = df_dados[df_dados['Municipio'].notna() & df_dados['Municipio'].apply(isinstance, args=(str,))]
+        
+        # Realiza a busca case-insensitive no DataFrame já filtrado e seguro
+        municipio_encontrado = df_filtrado[df_filtrado['Municipio'].str.lower() == nome_municipio.lower()]
+        
+        if municipio_encontrado.empty:
+            print(f"AVISO: Município '{nome_municipio}' não foi encontrado na base de dados.")
+            return jsonify({"erro": "Município não encontrado."}), 404
+        else:
+            print(f"SUCESSO: Município '{nome_municipio}' encontrado.")
+            dados_formatados = municipio_encontrado.iloc[0].replace({np.nan: 'N/D'}).to_dict()
+            return jsonify(dados_formatados)
+    except Exception as e:
+        print(f"ERRO CRÍTICO NA FUNÇÃO DE BUSCA: {e}")
+        return jsonify({"erro": "Ocorreu um erro interno no servidor ao buscar o município."}), 500
 
 @app.route('/api/municipios')
 def get_municipios():
