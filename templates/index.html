@@ -67,4 +67,38 @@
         
         async function buscarMunicipio(){
             const municipioNome=municipioSelect.value;
-            if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Se
+            if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Selecione um município.</p>'; return;}
+            resultadoDiv.innerHTML="<p>Buscando...</p>";
+            try {
+                const response = await fetch(`/api/municipio/${municipioNome}`);
+                const municipio = await response.json();
+                if (municipio.erro) { resultadoDiv.innerHTML = `<p style="color: red;">${municipio.erro}</p>`; return; }
+                
+                function getComparisonTo2025Goal(valorAtual, meta2025) { if (meta2025 === 'N/D' || valorAtual === 'N/D' || !meta2025) return '<div class="meta-status">Meta 2025: N/D</div>'; const valAtualNum = Number(String(valorAtual).replace(",",".")); const metaNum = Number(meta2025); if(isNaN(valAtualNum) || isNaN(metaNum)) return '<div class="meta-status">Meta 2025: N/D</div>'; const status = valAtualNum <= metaNum ? '<span class="status-met">Atingida</span>' : '<span class="status-not-met">Não Atingida</span>'; return `<div class="meta-status">Meta 2025: ${formatarNumero(metaNum)}% (${status})</div>`; }
+                
+                resultadoDiv.innerHTML = `
+                    <h3>Dados Gerais: ${municipio.Municipio}</h3>
+                    <div class="info-grid">
+                        <div class="info-item"><span class="label">População Total</span><span class="value">${formatarNumero(municipio.pop_total, 0)}</span></div>
+                        <div class="info-item"><span class="label">% Pop. Urbana</span><span class="value">${formatarNumero(municipio.pct_pop_urbana)} %</span></div>
+                        <div class="info-item"><span class="label">% Pop. Rural</span><span class="value">${formatarNumero(municipio.pct_pop_rural)} %</span></div>
+                        <div class="info-item"><span class="label">Volume Produzido</span><span class="value">${formatarNumero(municipio.vol_produzido)} mil m³/ano</span></div>
+                        <div class="info-item"><span class="label">Volume Consumido</span><span class="value">${formatarNumero(municipio.vol_consumido)} mil m³/ano</span></div>
+                        <div class="info-item"><span class="label">Volume Micromedido</span><span class="value">${formatarNumero(municipio.vol_micromedido)} mil m³/ano</span></div>
+                    </div>
+                    
+                    <h3 style="margin-top: 24px;">Indicadores e Metas de Perdas</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="label">Perdas na Distribuição (%)</span>
+                            <span class="value">${formatarNumero(municipio.perdas_percentual)} %</span>
+                            ${getComparisonTo2025Goal(municipio.perdas_percentual, municipio.Meta_2025)}
+                        </div>
+                        <div class="info-item"><span class="label">Perdas por Ligação (L/dia)</span><span class="value">${formatarNumero(municipio.perdas_por_ligacao)} L/lig/dia</span></div>
+                        <div class="info-item"><span class="label">Perdas Lineares</span><span class="value">${formatarNumero(municipio.perdas_lineares)} m³/km/dia</span></div>
+                        <div class="info-item"><span class="label">Incidência de Setorização</span><span class="value">${formatarNumero(municipio.incidencia_setorizadas)} %</span></div>
+                        <div class="info-item"><span class="label">Volume de Perdas Aparentes</span><span class="value">${formatarNumero(municipio.vol_perdas_aparentes)} mil m³/ano</span></div>
+                        <div class="info-item"><span class="label">Volume de Perdas Reais</span><span class="value">${formatarNumero(municipio.vol_perdas_reais)} mil m³/ano</span></div>
+                    </div>`;
+
+            } catch(e) { console.error("Erro na busca:",e); resultadoDiv.innerHTML='<p style="color: red;">Falha na conexão.</p>'; }
