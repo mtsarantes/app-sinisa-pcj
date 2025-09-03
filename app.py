@@ -24,6 +24,11 @@ def carregar_dados():
 # Carrega os dados ao iniciar o app
 df_dados = carregar_dados()
 
+[
+  {"Municipio": "Camanducaia", "UF": "MG", "Populacao_Total_Residente_": 15000},
+  {"Municipio": "Extrema", "UF": "MG", "Populacao_Total_Residente_": 35000}
+]
+
 # Rota principal
 @app.route("/")
 def index():
@@ -51,3 +56,4 @@ def detalhe_municipio(nome):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
