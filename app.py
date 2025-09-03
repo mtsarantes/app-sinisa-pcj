@@ -16,15 +16,12 @@ def to_numeric_br(series):
     return pd.to_numeric(series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), errors='coerce')
 
 try:
-    print("Lendo o arquivo 'dados_limpos_pcj.csv' com o decodificador UTF-8-SIG...")
+    print("Lendo o arquivo 'dados_limpos_pcj.csv' com o decodificador UTF-8-SIG e cabeçalho na linha 3...")
     
-    # Lendo o arquivo como 'utf-8-sig'
-    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=0)
+    # A CORREÇÃO PRINCIPAL: Lendo o arquivo como 'utf-8-sig' e definindo o cabeçalho na linha de índice 2
+    df_dados = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=2)
     
-    # Pulando as 2 linhas extras (unidades, códigos)
-    df_dados = df_temp.iloc[2:].reset_index(drop=True)
-
-    # Renomeando as colunas com os nomes corretos em português
+    # Renomeando as colunas com os nomes corretos em português (agora serão lidos corretamente)
     df_dados.rename(columns={
         'Município': 'Municipio',
         'População Total Residente ': 'pop_total',
@@ -41,9 +38,9 @@ try:
         'Volume de perdas reais de água': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
     }, inplace=True)
-
+    
+    # Limpando a coluna 'Município'
     if 'Municipio' in df_dados.columns:
-        # AQUI ESTÁ A CORREÇÃO: Removendo espaços extras e convertendo para minúsculas
         df_dados['Municipio'] = df_dados['Municipio'].str.strip().str.lower()
         
         cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 
