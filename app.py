@@ -6,6 +6,7 @@ import numpy as np
 app = Flask(__name__)
 CORS(app) 
 
+# Configuração para garantir acentuação correta na página
 app.config['JSON_AS_ASCII'] = False
 
 df_dados = pd.DataFrame()
@@ -17,13 +18,13 @@ def to_numeric_br(series):
 try:
     print("Lendo o arquivo 'dados_limpos_pcj.csv' com o decodificador UTF-8-SIG...")
     
-    # A CORREÇÃO FINAL: Lendo o arquivo como 'utf-8-sig'
+    # Lendo o arquivo como 'utf-8-sig'
     df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=0)
     
     # Pulando as 2 linhas extras (unidades, códigos)
     df_dados = df_temp.iloc[2:].reset_index(drop=True)
 
-    # Renomeando as colunas com os nomes corretos em português (agora serão lidos corretamente)
+    # Renomeando as colunas com os nomes corretos em português
     df_dados.rename(columns={
         'Município': 'Municipio',
         'População Total Residente ': 'pop_total',
@@ -42,7 +43,8 @@ try:
     }, inplace=True)
 
     if 'Municipio' in df_dados.columns:
-        df_dados['Municipio'] = df_dados['Municipio'].str.strip()
+        # AQUI ESTÁ A CORREÇÃO: Removendo espaços extras e convertendo para minúsculas
+        df_dados['Municipio'] = df_dados['Municipio'].str.strip().str.lower()
         
         cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 
                            'vol_consumido', 'vol_micromedido', 'perdas_percentual',
@@ -86,6 +88,10 @@ def ranking_perdas():
     ranking_df = ranking_df.sort_values(by='perdas_percentual', ascending=True)
     ranking_df = ranking_df[['Municipio', 'perdas_percentual']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
+    
+    # Restaurando a capitalização para exibição
+    ranking_df['Municipio'] = ranking_df['Municipio'].str.title()
+    
     return jsonify(ranking_df.to_dict(orient='records'))
 
 @app.route('/api/ranking/perdas_por_ligacao')
@@ -95,19 +101,28 @@ def ranking_perdas_por_ligacao():
     ranking_df = ranking_df.sort_values(by='perdas_por_ligacao', ascending=True)
     ranking_df = ranking_df[['Municipio', 'perdas_por_ligacao']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
+
+    # Restaurando a capitalização para exibição
+    ranking_df['Municipio'] = ranking_df['Municipio'].str.title()
+    
     return jsonify(ranking_df.to_dict(orient='records'))
 
 @app.route('/api/municipio/<nome_municipio>')
 def dados_municipio(nome_municipio):
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
+    
+    # AQUI ESTÁ A CORREÇÃO: Agora, o nome do município já está em minúsculas
+    municipio_encontrado = df_dados[df_dados['Municipio'] == nome_municipio.lower()]
+    
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
         dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
+        dados_formatados['Municipio'] = dados_formatados['Municipio'].title() # Capitaliza para exibição
         return jsonify(dados_formatados)
 
 @app.route('/api/municipios')
 def get_municipios():
     if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
-    lista_municipios = sorted(df_dados['Municipio'].dropna().unique().tolist())
+    # Retornando a lista de municípios com a primeira letra maiúscula para a lista suspensa
+    lista_municipios = sorted(df_dados['Municipio'].str.title().dropna().unique().tolist())
     return jsonify(lista_municipios)
