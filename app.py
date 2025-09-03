@@ -15,7 +15,7 @@ def to_numeric_br(series):
     # Função robusta para converter números no formato brasileiro
     return pd.to_numeric(
         series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), 
-        errors='coerce'
+        errors='coerce'  # Transforma textos inválidos em 'NaN' (Not a Number)
     )
 
 try:
@@ -81,15 +81,17 @@ def dados_municipio(nome_municipio):
     
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
-        dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
+        # Converte a linha para um dicionário Python padrão, substituindo NaN por 'N/D'
+        dados_formatados = municipio_encontrado.iloc[0].where(pd.notna(municipio_encontrado.iloc[0]), 'N/D').to_dict()
         
-        # CORREÇÃO FINAL: Garante que todos os valores são tipos padrão do Python antes de enviar
+        # Garante que todos os valores numéricos são tipos padrão do Python, seguros para JSON
         for key, value in dados_formatados.items():
             if isinstance(value, np.generic):
-                dados_formatados[key] = None if pd.isna(value) else value.item()
+                dados_formatados[key] = value.item()
 
         return jsonify(dados_formatados)
 
+# Outras rotas (rankings, lista de municipios)
 @app.route('/api/ranking/perdas')
 def ranking_perdas():
     if df_dados.empty: return jsonify([]), 500
