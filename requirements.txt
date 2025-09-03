@@ -1,5 +1,6 @@
-Flask
+unidecode
+flask
+flask-cors
 pandas
-Flask-Cors
 numpy
 gunicorn
