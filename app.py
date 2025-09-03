@@ -12,7 +12,6 @@ df_dados = pd.DataFrame()
 DATA_LOAD_ERROR = None
 
 def to_numeric_br(series):
-    # Função robusta para converter números no formato brasileiro
     return pd.to_numeric(
         series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), 
         errors='coerce'
@@ -22,46 +21,43 @@ try:
     caminho_arquivo = "dados_limpos_pcj.csv"
     print(f"Lendo o arquivo: {caminho_arquivo}")
 
-    # Leitura robusta: lê o cabeçalho e os dados separadamente
-    header_row = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', nrows=1, header=None).iloc[0]
-    df_dados = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig', header=None, skiprows=3)
-    df_dados.columns = header_row
+    # Leitura robusta que funcionou na análise
+    df_temp = pd.read_csv(caminho_arquivo, sep=';', encoding='ISO-8859-1', header=0)
+    df_dados = df_temp.iloc[2:].reset_index(drop=True)
 
-    # Dicionário de renomeação para nomes simples
+    # DICIONÁRIO DE RENOMEAÇÃO CORRIGIDO COM OS NOMES EXATOS DO SEU CSV
     rename_map = {
-        'Município': 'Municipio', 'Meta 2025': 'Meta_2025',
-        'População Total Residente ': 'pop_total', 'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente ': 'pop_rural', 'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido', 'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais'
+        'MunicÃ\xadpio': 'Municipio',
+        'Meta 2025': 'Meta_2025',
+        'PopulaÃ§Ã£o Total Residente ': 'pop_total',
+        'PopulaÃ§Ã£o Urbana Residente': 'pop_urbana',
+        'PopulaÃ§Ã£o Rural Residente ': 'pop_rural',
+        'Volume de Ã¡gua produzido': 'vol_produzido',
+        'Volume de Ã¡gua consumido': 'vol_consumido',
+        'Volume de Ã¡gua micromedido': 'vol_micromedido',
+        'Perdas totais de Ã¡gua na distribuiÃ§Ã£o': 'perdas_percentual',
+        'Perdas totais lineares de Ã¡gua na rede de distribuiÃ§Ã£o': 'perdas_lineares',
+        'Perdas totais de Ã¡gua por ligaÃ§Ã£o': 'perdas_por_ligacao',
+        'IncidÃªncia de ligaÃ§Ãµes de Ã¡gua setorizadas': 'incidencia_setorizadas',
+        'Volume de perdas aparentes de Ã¡gua': 'vol_perdas_aparentes',
+        'Volume de perdas reais de Ã¡gua': 'vol_perdas_reais'
     }
     df_dados.rename(columns=rename_map, inplace=True)
 
     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip()
         
-        # Lista completa de colunas para converter para número
-        cols_to_convert = [
-            'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 
-            'vol_micromedido', 'perdas_percentual', 'perdas_lineares', 'perdas_por_ligacao', 
-            'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025'
-        ]
+        cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido', 'vol_micromedido', 'perdas_percentual','perdas_lineares', 'perdas_por_ligacao', 'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025']
         for col in cols_to_convert:
             if col in df_dados.columns:
                 df_dados[col] = to_numeric_br(df_dados[col])
         
-        # Cálculos derivados
         df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
         df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
         
         print(">>> SUCESSO: Dados carregados e processados!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
+        raise Exception("A coluna 'Municipio' não foi encontrada. A renomeação falhou.")
         
 except Exception as e:
     DATA_LOAD_ERROR = str(e)
@@ -82,12 +78,9 @@ def dados_municipio(nome_municipio):
     if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
     else:
         dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
-        
-        # CORREÇÃO FINAL: Garante que todos os valores são tipos padrão do Python antes de enviar
         for key, value in dados_formatados.items():
             if isinstance(value, np.generic):
                 dados_formatados[key] = None if pd.isna(value) else value.item()
-
         return jsonify(dados_formatados)
 
 # Outras rotas (rankings, lista de municipios)
