@@ -1,110 +1,103 @@
 import pandas as pd
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template # Adicionar render_template
 from flask_cors import CORS
 import numpy as np
 
-# --- Configuração da Aplicação ---
-app = Flask(__name__, static_folder='.', static_url_path='')
-CORS(app) 
+app = Flask(__name__)
+CORS(app)
+
 app.config['JSON_AS_ASCII'] = False
 
 df_dados = pd.DataFrame()
 
-# Função auxiliar para converter números no formato brasileiro
-def to_numeric_br(series):
-    return pd.to_numeric(series.astype(str).str.replace('.', '', regex=False).str.replace(',', '.'), errors='coerce')
-
 try:
     print("Lendo o arquivo 'dados_limpos_pcj.csv'...")
+    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=',', encoding='utf-8-sig', header=0)
     
-    # Lendo o seu ficheiro CSV com a codificação e cabeçalho corretos
-    df_temp = pd.read_csv('dados_limpos_pcj.csv', sep=';', encoding='utf-8-sig', header=0)
-    df_dados = df_temp.iloc[2:].reset_index(drop=True)
+    print("Colunas encontradas no arquivo:", df_temp.columns.tolist())
 
-    # DICIONÁRIO DE RENOMEAÇÃO CORRIGIDO para bater com o seu cabeçalho
-    rename_map = {
-        'Município': 'Municipio',
-        'População Total Residente ': 'pop_total',
-        'População Urbana Residente': 'pop_urbana',
-        'População Rural Residente ': 'pop_rural',
-        'Volume de água produzido': 'vol_produzido',
-        'Volume de água consumido': 'vol_consumido',
-        'Volume de água micromedido': 'vol_micromedido',
-        'Perdas totais de água na distribuição': 'perdas_percentual',
-        'Perdas totais lineares de água na rede de distribuição': 'perdas_lineares',
-        'Perdas totais de água por ligação': 'perdas_por_ligacao',
-        'Incidência de ligações de água setorizadas': 'incidencia_setorizadas',
-        'Volume de perdas aparentes de água': 'vol_perdas_aparentes',
-        'Volume de perdas reais de água': 'vol_perdas_reais',
+    # Renomeando colunas para garantir a consistência
+    df_temp.rename(columns={
+        'Municipio': 'Municipio',
+        'Populacao Total Residente': 'pop_total',
+        'Populacao Urbana Residente': 'pop_urbana',
+        'Populacao Rural Residente': 'pop_rural',
+        'Volume de agua produzido': 'vol_produzido',
+        'Volume de agua consumido': 'vol_consumido',
+        'Volume de agua micromedido': 'vol_micromedido',
+        'Perdas totais de agua na distribuicao': 'perdas_percentual',
+        'Perdas totais lineares de agua na rede de distribuicao': 'perdas_lineares',
+        'Perdas totais de agua por ligacao': 'perdas_por_ligacao',
+        'Incidencia de ligacoes de agua setorizadas': 'incidencia_setorizadas',
+        'Volume de perdas aparentes de agua': 'vol_perdas_aparentes',
+        'Volume de perdas reais de agua': 'vol_perdas_reais',
         'Meta 2025': 'Meta_2025'
-    }
-    df_dados.rename(columns=rename_map, inplace=True)
+    }, inplace=True)
+    
+    df_dados = df_temp.iloc[2:].reset_index(drop=True)
 
     if 'Municipio' in df_dados.columns:
         df_dados['Municipio'] = df_dados['Municipio'].str.strip()
         
-        cols_to_convert = ['pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 
-                           'vol_consumido', 'vol_micromedido', 'perdas_percentual',
-                           'perdas_lineares', 'perdas_por_ligacao', 'incidencia_setorizadas',
-                           'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025']
+        cols_to_convert = [
+            'pop_total', 'pop_urbana', 'pop_rural', 'vol_produzido', 'vol_consumido',
+            'vol_micromedido', 'perdas_percentual', 'perdas_lineares', 'perdas_por_ligacao',
+            'incidencia_setorizadas', 'vol_perdas_aparentes', 'vol_perdas_reais', 'Meta_2025'
+        ]
+        
         for col in cols_to_convert:
             if col in df_dados.columns:
-                df_dados[col] = to_numeric_br(df_dados[col])
+                df_dados[col] = pd.to_numeric(df_dados[col], errors='coerce')
         
         df_dados['pct_pop_urbana'] = (df_dados['pop_urbana'] / df_dados['pop_total'] * 100).fillna(0)
         df_dados['pct_pop_rural'] = (df_dados['pop_rural'] / df_dados['pop_total'] * 100).fillna(0)
         
         print("Dados carregados e processados com sucesso!")
     else:
-        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV.")
+        raise Exception("A coluna 'Municipio' não foi encontrada. Verifique o cabeçalho do CSV e o bloco 'rename'.")
         
 except Exception as e:
     print(f"\nOcorreu um erro inesperado: {e}")
 
-# --- Rotas da API ---
-
+# --- Rota Principal para servir a página HTML ---
 @app.route('/')
-def index():
-    return app.send_static_file('index.html')
+def home():
+    # Flask vai procurar por 'index.html' na pasta 'templates'
+    return render_template('index.html')
 
-@app.route('/api/municipio/<nome_municipio>')
-def dados_municipio(nome_municipio):
-    if df_dados.empty: return jsonify({"erro": "Dados não carregados no servidor."}), 500
-    
-    municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
-    
-    if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
-    else:
-        dados_formatados = municipio_encontrado.iloc[0].fillna('N/D').to_dict()
-        for key, value in dados_formatados.items():
-            if isinstance(value, np.generic):
-                dados_formatados[key] = None if pd.isna(value) else value.item()
-        return jsonify(dados_formatados)
+# --- As rotas da API continuam as mesmas ---
 
-# Outras rotas (rankings, lista de municipios)
 @app.route('/api/ranking/perdas')
 def ranking_perdas():
-    if df_dados.empty: return jsonify([]), 500
-    ranking_df = df_dados.dropna(subset=['perdas_percentual', 'Municipio']).sort_values(by='perdas_percentual', ascending=True).reset_index(drop=True)
+    if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
+    ranking_df = df_dados.dropna(subset=['perdas_percentual', 'Municipio'])
+    ranking_df = ranking_df.sort_values(by='perdas_percentual', ascending=True)
+    ranking_df = ranking_df[['Municipio', 'perdas_percentual']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
-    return jsonify(ranking_df[['Posicao', 'Municipio', 'perdas_percentual']].to_dict(orient='records'))
+    return jsonify(ranking_df.to_dict(orient='records'))
 
 @app.route('/api/ranking/perdas_por_ligacao')
 def ranking_perdas_por_ligacao():
-    if df_dados.empty: return jsonify([]), 500
-    ranking_df = df_dados.dropna(subset=['perdas_por_ligacao', 'Municipio']).sort_values(by='perdas_por_ligacao', ascending=True).reset_index(drop=True)
+    if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
+    ranking_df = df_dados.dropna(subset=['perdas_por_ligacao', 'Municipio'])
+    ranking_df = ranking_df.sort_values(by='perdas_por_ligacao', ascending=True)
+    ranking_df = ranking_df[['Municipio', 'perdas_por_ligacao']]
     ranking_df.insert(0, 'Posicao', range(1, 1 + len(ranking_df)))
-    return jsonify(ranking_df[['Posicao', 'Municipio', 'perdas_por_ligacao']].to_dict(orient='records'))
+    return jsonify(ranking_df.to_dict(orient='records'))
+
+@app.route('/api/municipio/<nome_municipio>')
+def dados_municipio(nome_municipio):
+    if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
+    municipio_encontrado = df_dados[df_dados['Municipio'].str.lower() == nome_municipio.lower()]
+    if municipio_encontrado.empty: return jsonify({"erro": "Município não encontrado."}), 404
+    else:
+        dados_formatados = municipio_encontrado.iloc[0].replace({np.nan: 'N/D'}).to_dict()
+        return jsonify(dados_formatados)
 
 @app.route('/api/municipios')
 def get_municipios():
-    if df_dados.empty: return jsonify([]), 500
+    if df_dados.empty: return jsonify({"erro": "Dados não carregados."}), 500
     lista_municipios = sorted(df_dados['Municipio'].dropna().unique().tolist())
     return jsonify(lista_municipios)
 
-if __name__ == '__main__':
-    if not df_dados.empty:
-        print("\nIniciando o servidor...")
-        app.run(debug=True)
-    else:
-        print("\nServidor não iniciado devido a erro no carregamento dos dados.")
+# O if __name__ == '__main__': foi removido, pois o Gunicorn não o utiliza.
