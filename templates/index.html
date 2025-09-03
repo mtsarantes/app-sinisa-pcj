@@ -18,6 +18,7 @@
 </head>
 <body>
     <header style="text-align: center;"><h1>Consulta de Eficiência Hídrica - Bacias PCJ</h1></header>
+
     <main>
         <h2>Dados Gerais da Bacia PCJ</h2>
         <div class="info-grid">
@@ -29,6 +30,7 @@
             <div class="info-item"><span class="label">Índice de Perdas por Ligação</span><span class="value">296,25 L/lig/dia</span></div>
         </div>
     </main>
+
     <main>
         <h2>Consulta por Município</h2>
         <div class="search-container">
@@ -37,6 +39,7 @@
         </div>
         <div id="municipio-resultado"></div>
     </main>
+    
     <main style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
         <div>
             <h2>Ranking: Perdas (%)</h2>
@@ -53,17 +56,15 @@
             </table>
         </div>
     </main>
+    
     <footer>Desenvolvido por: Câmara Técnica de Saneamento.</footer>
+
     <script>
         const baciaValores = { perdas_percentual: 35.44, perdas_por_ligacao: 296.25 };
         function formatarNumero(valor, casasDecimais = 2) { if (valor === 'N/D' || valor === null || valor === undefined) return 'N/D'; const numero = Number(String(valor).replace(",",".")); if (isNaN(numero)) { return 'N/D'; } return numero.toLocaleString('pt-BR', { minimumFractionDigits: casasDecimais, maximumFractionDigits: casasDecimais }); }
+        
         const searchButton=document.getElementById("search-button"),municipioSelect=document.getElementById("municipio-select"),resultadoDiv=document.getElementById("municipio-resultado");
+        
         async function buscarMunicipio(){
             const municipioNome=municipioSelect.value;
-            if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Selecione um município.</p>'; return;}
-            resultadoDiv.innerHTML="<p>Buscando...</p>";
-            try {
-                const response = await fetch(`/api/municipio/${municipioNome}`);
-                const municipio = await response.json();
-                if (municipio.erro) { resultadoDiv.innerHTML = `<p style="color: red;">${municipio.erro}</p>`; return; }
-                function getComparisonTo2025Goal(valorAtual, meta2025) { if (meta2025 === 'N/D' || valorAtual === 'N/D' || !meta2025) return '<div class="meta-status">Meta 2025: N/D</div>'; const valAtualNum = Number(String(valorAtual).replace(",",".")); const metaNum = Number(meta2025); if(isNaN(valAtualNum) || isNaN(metaNum)) return '<div class="meta-status">Meta 2025: N/D</div>'; const status = valAtualNum <= metaNum ? '<span class="status-met">Atingida</span>' : '<span class="status-not-met">Não Atingida</span>'; return `<div class="meta-status">Meta 2025: ${formatarNumero(metaNum)}%
+            if(!municipioNome){resultadoDiv.innerHTML='<p style="color: orange;">Se
