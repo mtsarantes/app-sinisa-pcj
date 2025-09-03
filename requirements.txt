@@ -1,5 +1,6 @@
-Flask
 pandas
+Flask
 Flask-Cors
+orjson
+Flask-Caching
 gunicorn
-numpy
